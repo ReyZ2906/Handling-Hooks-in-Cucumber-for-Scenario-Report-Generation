@@ -1,0 +1,98 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Cucumber Suite" parallel="tests" thread-count="5">
+
+    <listeners>
+        <listener class-name="reports.ReportSuiteListener"/>
+    </listeners>
+
+    <test name="Cucumber Tests">
+        <classes>
+            <class name="runner.TestRunner"/>
+        </classes>
+    </test>
+
+</suite>
+
+package reports;
+
+import org.testng.ISuite;
+import org.testng.ISuiteListener;
+
+import java.io.File;
+
+public class ReportSuiteListener implements ISuiteListener {
+
+    @Override
+    public void onFinish(ISuite suite) {
+
+        File jsonDir = new File("target/reports/json");
+        File[] jsonFiles = jsonDir.listFiles((d, name) -> name.endsWith(".json"));
+
+        if (jsonFiles == null || jsonFiles.length == 0) {
+            return;
+        }
+
+        for (File json : jsonFiles) {
+            ReportGenerator.generateCucumberReport(json.getAbsolutePath());
+        }
+    }
+}
+
+
+package hooks;
+
+import io.cucumber.java.After;
+import io.cucumber.java.Scenario;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+public class ScenarioReportHook {
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(ScenarioReportHook.class);
+
+    @After(order = 0)
+    public void captureScenarioJson(Scenario scenario) {
+
+        try {
+            Path sourceJson = Paths.get("target/reports/json/cucumber.json");
+
+            // WAIT until JSON has content (CRITICAL)
+            int retries = 10;
+            while (Files.size(sourceJson) == 0 && retries-- > 0) {
+                Thread.sleep(300);
+            }
+
+            if (Files.size(sourceJson) == 0) {
+                LOG.warn("JSON still empty, skipping report for {}", scenario.getName());
+                return;
+            }
+
+            String escapedName = scenario.getName()
+                    .replaceAll("[^a-zA-Z0-9]", "_");
+
+            String timestamp =
+                    new SimpleDateFormat("yyyyMMdd_HHmmss_SSS")
+                            .format(new Date());
+
+            Path scenarioJson = Paths.get(
+                    "target/reports/json",
+                    escapedName + "_" + timestamp + ".json"
+            );
+
+            Files.copy(sourceJson, scenarioJson);
+
+            LOG.info("Copied JSON for scenario: {}", scenario.getName());
+
+        } catch (Exception e) {
+            LOG.error("Failed to copy scenario JSON", e);
+        }
+    }
+}
+
