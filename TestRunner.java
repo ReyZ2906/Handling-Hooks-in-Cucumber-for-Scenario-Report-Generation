@@ -27,19 +27,59 @@ import io.cucumber.java.After;
 import io.cucumber.java.Scenario;
 import reports.ReportGenerator;
 
-public class Hooks {
+package hooks;
 
-    @After
-    public void afterScenario(Scenario scenario) {
-        String scenarioName = scenario.getName()
-                .replaceAll("[^a-zA-Z0-9]", "_");
+import io.cucumber.java.After;
+import io.cucumber.java.Scenario;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import reports.ReportGenerator;
 
-        String jsonPath = "target/reports/json/cucumber.json";
-        String scenarioJson = "target/reports/json/" + scenarioName + ".json";
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
-        ReportGenerator.copyAndGenerate(jsonPath, scenarioJson);
+public class ScenarioReportHook {
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(ScenarioReportHook.class);
+
+    @After(order = 0)
+    public void generateScenarioReport(Scenario scenario) {
+
+        try {
+            String escapedScenarioName = scenario.getName()
+                    .replaceAll("[^a-zA-Z0-9]", "_");
+
+            String timestamp =
+                    new SimpleDateFormat("yyyyMMdd_HHmmss_SSS")
+                            .format(new Date());
+
+            Path sourceJson =
+                    Paths.get("target/reports/json/cucumber.json");
+
+            Path scenarioJson =
+                    Paths.get(
+                            "target/reports/json",
+                            escapedScenarioName + "_" + timestamp + ".json"
+                    );
+
+            Files.copy(sourceJson, scenarioJson);
+
+            LOG.info("Generating report for scenario: {}", scenario.getName());
+
+            ReportGenerator.generateCucumberReport(
+                    scenarioJson.toString()
+            );
+
+        } catch (Exception e) {
+            LOG.error("Scenario report generation failed", e);
+        }
     }
 }
+
 
 package reports;
 
