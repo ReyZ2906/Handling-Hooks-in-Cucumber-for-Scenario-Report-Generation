@@ -1,0 +1,136 @@
+def write_excel(
+    writer,
+    allmatched: pd.DataFrame,
+    hourly_success: pd.DataFrame,
+    hourly_fail: pd.DataFrame,
+    cons_success: pd.DataFrame,
+    cons_failure: pd.DataFrame,
+    advice_mapping: pd.DataFrame,
+) -> None:
+    """Write the original five worksheets plus the new Advice_Mapping sheet."""
+
+    write_and_style(
+        allmatched,
+        writer,
+        sheet_name="ALLMatched",
+        status_header="Status",
+    )
+
+    write_and_style(
+        hourly_success,
+        writer,
+        sheet_name="ALLMatched_Success",
+        status_header="AUTOMATION STATUS",
+    )
+
+    write_and_style(
+        hourly_fail,
+        writer,
+        sheet_name="ALLMatched_Fail",
+        status_header="AUTOMATION STATUS",
+    )
+
+    write_and_style(
+        cons_success,
+        writer,
+        sheet_name="Consolidated_Success",
+        status_header="Status",
+    )
+
+    write_and_style(
+        cons_failure,
+        writer,
+        sheet_name="Consolidated_Failure",
+        status_header="Status",
+    )
+
+    # ----- NEW SHEET -----
+    advice_mapping.to_excel(
+        writer,
+        index=False,
+        sheet_name="Advice_Mapping",
+    )
+
+    ws = writer.sheets["Advice_Mapping"]
+    style_advice_mapping(ws)
+
+
+
+New Code 
+
+
+def style_advice_mapping(ws):
+    # ---------------- Borders ----------------
+    thin = Side(style="thin", color="000000")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    for row in ws.iter_rows():
+        for cell in row:
+            cell.border = border
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    # ---------------- Header styling ----------------
+    header_fill = PatternFill(
+        start_color="1F4E78",
+        end_color="1F4E78",
+        fill_type="solid",
+    )
+    header_font = Font(bold=True, color="FFFFFF")
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_align
+
+    # ---------------- Find column indices ----------------
+    headers = {
+        str(cell.value).strip(): idx
+        for idx, cell in enumerate(ws[1], start=1)
+    }
+
+    cr_idx = headers.get("ContractReference")
+    cr_list_idx = headers.get("ContractReferenceList")
+
+    if not cr_idx or not cr_list_idx:
+        return  # required columns not present
+
+    # ---------------- Fluorescent highlight ----------------
+    neon_green = PatternFill(
+        start_color="39FF14",  # fluorescent green
+        end_color="39FF14",
+        fill_type="solid",
+    )
+
+    for row in ws.iter_rows(min_row=2):
+        cr_cell = row[cr_idx - 1]
+        cr_list_cell = row[cr_list_idx - 1]
+
+        if not cr_cell.value or not cr_list_cell.value:
+            continue
+
+        cr = str(cr_cell.value).strip()
+        cr_list = {
+            v.strip()
+            for v in str(cr_list_cell.value).split("|")
+            if v.strip()
+        }
+
+        if cr in cr_list:
+            cr_cell.fill = neon_green
+            cr_cell.font = Font(bold=True)
+
+    # ---------------- Auto column width ----------------
+    for col in ws.columns:
+        max_len = max(
+            len(str(cell.value)) if cell.value is not None else 0
+            for cell in col
+        )
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 80)
+
+    ws.freeze_panes = "A2"
+
+
+
+
+
